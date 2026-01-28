@@ -50,15 +50,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         costData = await buscarCustosDoFirestore();
 
-        // Abordagem Robusta: Deixar o Papa Parse autodetectar o formato.
         Papa.parse(file, {
-            header: true,         // O cabeçalho é a primeira linha.
-            skipEmptyLines: true, // Pular linhas vazias.
-            dynamicTyping: true,  // Converte tipos (números, booleanos) automaticamente.
-            // Removido 'delimiter' e 'newline' para permitir autodeteção.
-            
+            header: true,
+            skipEmptyLines: true,
+            dynamicTyping: true,
             complete: (results) => {
-                // NOVO: Verificador de erros de parsing
                 if (results.errors.length > 0) {
                     console.error("Erros de parsing do CSV:", results.errors);
                     alert(`Ocorreram erros ao ler o arquivo CSV. O erro mais comum é a falta de um cabeçalho ou delimitadores inconsistentes. Verifique o console (F12) para detalhes e tente novamente.`);
@@ -72,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 fullSalesData = results.data;
                 populateFilters(fullSalesData);
-                displayFullSalesTable(fullSalesData);
+                displayFullSalesTable(fullSalesData, results.meta.fields); // Passando os cabeçalhos corretos
                 runAnalysis(); 
                 analysisContainer.style.display = 'block';
                 analysisContainer.scrollIntoView({ behavior: 'smooth' });
@@ -86,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LÓGICA DOS FILTROS E ANÁLISE ---
 
     const populateFilters = (data) => {
-        // Validação: Garante que os campos existem antes de tentar usá-los.
         if (!data[0] || !data[0]["Loja Oficial"] || !data[0]["Estado Atual"]) {
             console.warn("Os cabeçalhos 'Loja Oficial' ou 'Estado Atual' não foram encontrados no CSV.");
             return;
@@ -114,7 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const store = storeFilter.value;
         const status = statusFilter.value;
 
-        // Filtros com checagem de segurança
         if (startDate) filteredData = filteredData.filter(item => item["Data de Compra"] && new Date(item["Data de Compra"]) >= new Date(startDate));
         if (endDate) filteredData = filteredData.filter(item => item["Data de Compra"] && new Date(item["Data de Compra"]) <= new Date(endDate));
         if (sku) filteredData = filteredData.filter(item => item["SKU"] && item["SKU"].toUpperCase().includes(sku));
@@ -131,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         data.forEach(item => {
             const sku = item["SKU"];
-            const units = item["Unidades"]; // dynamicTyping já converte para número
+            const units = item["Unidades"];
 
             if (sku && units && !isNaN(units)) {
                 const cost = costData[sku] || 0;
@@ -163,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
             totalCostToPay += distributorCost[distributor];
         });
         costHtml += '</tbody></table>';
-        resultsContainer.innerHTML = costHtml;
+        resultsContainer.innerHTML += costHtml;
 
         let productHtml = '<br><h3>Unidades Vendidas por Produto</h3><table><thead><tr><th>SKU</th><th>Unidades</th></tr></thead><tbody>';
         Object.keys(productCount).sort().forEach(sku => {
@@ -176,13 +170,12 @@ document.addEventListener('DOMContentLoaded', () => {
         totalUnitsSoldValue.textContent = totalUnitsSold.toString();
     };
     
-    const displayFullSalesTable = (data) => {
-        if(data.length === 0){
-            salesTableContainer.innerHTML = '<p>Nenhum dado de venda para exibir.</p>';
+    const displayFullSalesTable = (data, headers) => {
+        if(data.length === 0 || !headers || headers.length === 0){
+            salesTableContainer.innerHTML = '<p>Nenhum dado de venda para exibir ou cabeçalhos não encontrados.</p>';
             return;
         }
 
-        const headers = results.meta.fields;
         let table = '<table><thead><tr>';
         headers.forEach(h => table += `<th>${h}</th>`);
         table += '</tr></thead><tbody>';
