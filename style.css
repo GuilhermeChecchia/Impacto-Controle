@@ -1,270 +1,112 @@
-/* Importando a fonte Poppins do Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
-/* === VARIÁVEIS DE DESIGN (A NOVA ALMA DO PROJETO) === */
-:root {
-    --font-principal: 'Poppins', sans-serif;
-    --cor-primaria: #4A90E2; /* Um azul mais vibrante e moderno */
-    --cor-sucesso: #50E3C2; /* Verde-água para sucesso e destaques positivos */
-    --cor-alerta: #F5A623; /* Laranja para edição e alertas */
-    --cor-erro: #D0021B; /* Vermelho para exclusão e erros */
-    --cor-texto-principal: #333a40; /* Cinza-chumbo para textos */
-    --cor-texto-secundario: #7f8c9b;
-    --cor-fundo-principal: #f8f9fa;
-    --cor-fundo-secundario: #ffffff;
-    --cor-borda: #e1e8ed;
-    
-    --sombra-suave: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --sombra-profunda: 0 10px 20px rgba(0, 0, 0, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08);
-    --sombra-glow-primaria: 0 0 15px rgba(74, 144, 226, 0.5);
-}
-
-/* === ESTILOS GLOBAIS E TEXTURA === */
 body {
-    font-family: var(--font-principal);
-    margin: 0;
-    background-color: var(--cor-fundo-principal);
-    color: var(--cor-texto-principal);
-    line-height: 1.6;
-    /* Efeito de textura sutil no fundo */
-    background-image: url('data:image/svg+xml,%3Csvg width="6" height="6" viewBox="0 0 6 6" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="%23e1e8ed" fill-opacity="0.4" fill-rule="evenodd"%3E%3Cpath d="M5 0h1L0 6V5zM6 5v1H5z"/%3E%3C/g%3E%3C/svg%3E');
+    font-family: sans-serif;
+    margin: 20px;
+    background-color: #f4f4f4;
 }
 
 .container {
-    max-width: 1200px;
-    margin: 2.5rem auto;
-    padding: 0 2rem;
+    max-width: 800px;
+    margin: auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 5px;
 }
 
-/* === HEADER E NAVEGAÇÃO MODERNOS === */
-header {
-    background-color: var(--cor-fundo-secundario);
-    padding: 1rem 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: var(--sombra-suave);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
+h1, h2, h3 {
+    color: #333;
 }
 
-header h1 {
-    color: var(--cor-primaria);
-    margin: 0;
-    font-size: 1.75rem;
-    font-weight: 700;
+/* Formulário */
+#product-form {
+    margin-bottom: 20px;
 }
 
-header nav a {
-    color: var(--cor-texto-secundario);
-    text-decoration: none;
-    margin-left: 1.5rem;
-    font-weight: 500;
-    transition: color 0.3s ease;
-    padding-bottom: 5px;
-    border-bottom: 2px solid transparent;
-}
-
-header nav a:hover {
-    color: var(--cor-primaria);
-}
-header nav a.active {
-    color: var(--cor-primaria);
-    border-bottom-color: var(--cor-primaria);
-}
-
-/* === SEÇÕES E CARDS FLUTUANTES === */
-section {
-    background-color: var(--cor-fundo-secundario);
-    padding: 2.5rem;
-    border-radius: 12px;
-    box-shadow: var(--sombra-profunda);
-    margin-bottom: 2.5rem;
-}
-
-h2 {
-    margin-top: 0;
-    color: var(--cor-texto-principal);
-    font-weight: 600;
-    font-size: 1.5rem;
-    border-bottom: 1px solid var(--cor-borda);
-    padding-bottom: 1rem;
-    margin-bottom: 2rem;
-}
-
-/* === FORMULÁRIOS ELEGANTES === */
 .form-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: 10px;
 }
 
 label {
     display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: var(--cor-texto-secundario);
+    margin-bottom: 5px;
 }
 
-input[type="text"], input[type="number"], input[type="date"], select {
+input[type="text"], input[type="number"] {
     width: 100%;
-    padding: 12px;
-    border: 1px solid var(--cor-borda);
-    border-radius: 8px;
+    padding: 8px;
     box-sizing: border-box;
-    font-family: var(--font-principal);
-    font-size: 1rem;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-input:focus, select:focus {
-    outline: none;
-    border-color: var(--cor-primaria);
-    box-shadow: var(--sombra-glow-primaria);
-}
-
-/* === BOTÕES COM EFEITO GLOW === */
-button, .button {
-    background-color: var(--cor-primaria);
-    color: white;
-    padding: 12px 24px;
+button {
+    background: #333;
+    color: #fff;
+    padding: 10px 15px;
     border: none;
-    border-radius: 8px;
     cursor: pointer;
-    font-size: 1rem;
-    font-weight: 600;
-    transition: transform 0.2s ease, box-shadow 0.3s ease;
 }
 
-button:hover, .button:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--sombra-glow-primaria);
+button:hover {
+    background: #555;
 }
 
-/* === TABELA COM DESIGN PROFISSIONAL === */
-table {
+/* Lista de Produtos */
+#product-list table {
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0 10px; /* Espaçamento entre as linhas */
-    margin-top: 1rem;
+    border-collapse: collapse;
 }
 
-thead th {
+#product-list th, #product-list td {
+    border: 1px solid #ddd;
+    padding: 8px;
     text-align: left;
-    padding: 15px 20px;
-    font-weight: 600;
-    color: var(--cor-texto-secundario);
-    text-transform: uppercase;
-    font-size: 0.85em;
-    border-bottom: 2px solid var(--cor-borda);
 }
 
-td {
-    text-align: left;
-    padding: 15px 20px;
-    background-color: var(--cor-fundo-secundario);
-    border-top: 1px solid var(--cor-borda);
-    border-bottom: 1px solid var(--cor-borda);
+#product-list th {
+    background-color: #f2f2f2;
 }
-
-tr td:first-child {
-    border-left: 1px solid var(--cor-borda);
-    border-top-left-radius: 10px;
-    border-bottom-left-radius: 10px;
-}
-
-tr td:last-child {
-    border-right: 1px solid var(--cor-borda);
-    border-top-right-radius: 10px;
-    border-bottom-right-radius: 10px;
-}
-
-tbody tr {
-    box-shadow: var(--sombra-suave);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-tbody tr:hover {
-    transform: scale(1.02);
-    box-shadow: var(--sombra-profunda);
-    z-index: 10;
-    position: relative;
-}
-
-/* === BOTÕES DE AÇÃO NA TABELA === */
-.actions button {
-    padding: 8px 14px;
-    font-size: 0.9rem;
-    margin-right: 8px;
-    border-radius: 6px;
-}
-
-.edit-btn {
-    background-color: var(--cor-alerta);
-    color: white;
-}
-.edit-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 10px rgba(245, 166, 35, 0.6);
-}
-
-.delete-btn {
-    background-color: var(--cor-erro);
-    color: white;
-}
-.delete-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 10px rgba(208, 2, 27, 0.6);
-}
-
-/* === ESTILOS ESPECÍFICOS DAS PÁGINAS === */
 
 /* Análise de Vendas */
 #sales-drop-area {
-    border: 3px dashed var(--cor-borda);
-    border-radius: 12px;
-    padding: 3rem;
+    border: 2px dashed #ccc;
+    padding: 20px;
     text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-#sales-drop-area.active, #sales-drop-area:hover {
-    border-color: var(--cor-primaria);
-    background-color: #f0f8ff;
-}
-#sales-file-input { display: none; }
-
-#filters {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
+    margin-bottom: 20px;
 }
 
 #summary-cards {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    margin-bottom: 2.5rem;
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
 }
 
 .summary-card {
-    background: var(--cor-fundo-secundario);
-    padding: 2rem;
-    border-radius: 12px;
-    border-left: none;
-    border-top: 5px solid var(--cor-primaria);
-    box-shadow: var(--sombra-suave);
+    flex: 1;
+    background: #eee;
+    padding: 15px;
+    border-radius: 5px;
 }
 
-.summary-card h3 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.1rem;
-    color: var(--cor-texto-secundario);
-    font-weight: 500;
+#results-list-container table, #sales-table-display table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
 }
 
-.summary-card p {
-    margin: 0;
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: var(--cor-primaria);
+#results-list-container th, #results-list-container td, 
+#sales-table-display th, #sales-table-display td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
 }
+
+#results-list-container th, #sales-table-display th {
+    background-color: #f2f2f2;
+}
+
+.actions button {
+    padding: 5px 10px;
+    font-size: 0.8em;
+    margin-right: 5px;
+}
+
+.edit-btn { background: #ffc107; color: #333; }
+.delete-btn { background: #dc3545; color: #fff; }
