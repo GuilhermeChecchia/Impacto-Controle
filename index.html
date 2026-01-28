@@ -1,14 +1,100 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hello World</title>
-  <link href='/style.css' rel='stylesheet'>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impacto Vendas - Análise</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Hello, world!</h1>
-  <button onclick="console.log('hello');">Press me</button>
-  <script defer type="text/javascript" src="/main.js"></script>
+    <header>
+        <div class="header-container">
+            <img src="LOGO-IMPACTO-VENDAS.webp" alt="Logo Impacto Vendas" class="logo">
+            <h1>Dashboard de Análise</h1>
+        </div>
+        <nav>
+            <a href="index.html" class="active">Análise</a>
+            <a href="cadastro.html">Cadastro</a>
+        </nav>
+    </header>
+
+    <main class="main-container">
+        <!-- Painel de Controles: Upload e Filtros -->
+        <div id="controls-panel">
+            <div class="control-section">
+                <h2 class="section-title">1. Carregar Relatório de Vendas</h2>
+                <p class="section-description">Arraste e solte o arquivo `dados-tratados.csv` ou clique para selecionar.</p>
+                <div id="sales-drop-area">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <p><strong>Arraste o arquivo</strong> ou clique para selecionar</p>
+                </div>
+                <input type="file" id="sales-file-input" accept=".csv" style="display: none;">
+            </div>
+
+            <div class="control-section">
+                <h2 class="section-title">2. Filtrar Análise</h2>
+                <p class="section-description">Refine os resultados com os filtros abaixo.</p>
+                <div id="filters-container">
+                    <div class="filter-group">
+                        <label for="start-date-filter">Data de Início</label>
+                        <input type="date" id="start-date-filter">
+                    </div>
+                    <div class="filter-group">
+                        <label for="end-date-filter">Data de Fim</label>
+                        <input type="date" id="end-date-filter">
+                    </div>
+                    <div class="filter-group">
+                        <label for="sku-filter">Filtrar por SKU</label>
+                        <input type="text" id="sku-filter" placeholder="Ex: 4-ALLEGRA-PT">
+                    </div>
+                    <div class="filter-group">
+                        <label for="store-filter">Loja Oficial</label>
+                        <select id="store-filter"><option value="">Todas</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="status-filter">Estado Atual</label>
+                        <select id="status-filter"><option value="">Todos</option></select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Painel de Resultados da Análise -->
+        <div id="analysis-results-container" style="display: none;">
+            
+            <div id="summary-cards-container">
+                <div class="summary-card">
+                    <h4>Custo a Pagar</h4>
+                    <p id="total-cost-to-pay-value">R$ 0,00</p>
+                </div>
+                <div class="summary-card">
+                    <h4>Unidades Vendidas</h4>
+                    <p id="total-units-sold-value">0</p>
+                </div>
+            </div>
+
+            <div id="sales-sheet-container" class="control-section">
+                <h2 class="section-title">Pré-visualização do Relatório de Vendas</h2>
+                <div id="sales-table-display">
+                     <!-- Tabela de vendas será renderizada aqui -->
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h2 class="section-title">Resultados Encontrados</h2>
+                <div id="results-list-container">
+                    <!-- Resultados da análise serão renderizados aqui -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Impacto Vendas. Todos os direitos reservados.</p>
+    </footer>
+    
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+    <script src="main.js"></script>
 </body>
 </html>
