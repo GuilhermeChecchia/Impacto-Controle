@@ -8,47 +8,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const salesTableContainer = document.getElementById('sales-table-display');
     const analysisContainer = document.getElementById('analysis-results-container');
 
-    // Variáveis para os filtros
     const startDateFilter = document.getElementById('start-date-filter');
     const endDateFilter = document.getElementById('end-date-filter');
     const skuFilter = document.getElementById('sku-filter');
     const storeFilter = document.getElementById('store-filter');
     const statusFilter = document.getElementById('status-filter');
 
-    // Cards de resumo
     const totalCostToPayValue = document.getElementById('total-cost-to-pay-value');
     const totalUnitsSoldValue = document.getElementById('total-units-sold-value');
 
     let fullSalesData = [];
-    let costData = {};
+    let productDatabase = {}; // Renomeado para refletir que contém mais que apenas custos
 
-    // --- FUNÇÃO PARA BUSCAR CUSTOS DO FIRESTORE ---
-    const buscarCustosDoFirestore = async () => {
-        const custos = {};
+    // --- FUNÇÃO PARA BUSCAR DADOS COMPLETOS DO PRODUTO DO FIRESTORE ---
+    const fetchProductDatabase = async () => {
+        const db = {};
         try {
             const querySnapshot = await getDocs(collection(db, "produtos"));
             querySnapshot.forEach((doc) => {
                 const produto = doc.data();
-                custos[produto.sku] = produto.custoTotal;
+                // **A CORREÇÃO PRINCIPAL ESTÁ AQUI**
+                // Armazenamos um objeto com custo E fornecedor, não apenas o custo.
+                db[produto.sku] = {
+                    cost: produto.custoTotal,
+                    supplier: produto.fornecedor
+                };
             });
-            console.log('Dados de custo carregados do Firestore com sucesso!');
-            return custos;
+            console.log('Banco de dados de produtos carregado do Firestore:', db);
+            return db;
         } catch (error) {
-            console.error("Erro ao buscar custos do Firestore: ", error);
-            alert("Não foi possível carregar os dados de custo do banco de dados. A análise pode ficar incorreta.");
-            return {}; // Retorna objeto vazio em caso de erro
+            console.error("Erro ao buscar dados de produtos do Firestore: ", error);
+            alert("Não foi possível carregar os dados de produtos do banco de dados. A análise pode ficar incorreta.");
+            return {};
         }
     };
 
     // --- LÓGICA DE UPLOAD E PROCESSAMENTO ---
-
     const handleFileSelect = async (file) => {
         if (!file || !(file.type.match('text/csv') || file.name.endsWith('.csv'))) {
             alert('Por favor, selecione um arquivo CSV.');
             return;
         }
 
-        costData = await buscarCustosDoFirestore();
+        productDatabase = await fetchProductDatabase(); // Carrega o banco de dados completo
 
         Papa.parse(file, {
             header: true,
@@ -57,57 +59,37 @@ document.addEventListener('DOMContentLoaded', () => {
             complete: (results) => {
                 if (results.errors.length > 0) {
                     console.error("Erros de parsing do CSV:", results.errors);
-                    alert(`Ocorreram erros ao ler o arquivo CSV. O erro mais comum é a falta de um cabeçalho ou delimitadores inconsistentes. Verifique o console (F12) para detalhes e tente novamente.`);
+                    alert(`Ocorreram erros ao ler o arquivo CSV. Verifique o console (F12) para detalhes.`);
                     return;
                 }
-
                 if (!results.data || results.data.length === 0) {
                     alert("O arquivo CSV parece estar vazio ou em um formato não reconhecido.");
                     return;
                 }
-                
                 fullSalesData = results.data;
                 populateFilters(fullSalesData);
-                displayFullSalesTable(fullSalesData, results.meta.fields); // Passando os cabeçalhos corretos
-                runAnalysis(); 
+                displayFullSalesTable(fullSalesData, results.meta.fields);
+                runAnalysis();
                 analysisContainer.style.display = 'block';
                 analysisContainer.scrollIntoView({ behavior: 'smooth' });
             },
-            error: (err) => {
-                alert(`Erro crítico ao processar o arquivo CSV: ${err.message}`);
-            }
+            error: (err) => alert(`Erro crítico ao processar o arquivo CSV: ${err.message}`)
         });
     };
 
     // --- LÓGICA DOS FILTROS E ANÁLISE ---
-
     const populateFilters = (data) => {
-        if (!data[0] || !data[0]["Loja Oficial"] || !data[0]["Estado Atual"]) {
-            console.warn("Os cabeçalhos 'Loja Oficial' ou 'Estado Atual' não foram encontrados no CSV.");
-            return;
-        }
-
+        if (!data[0]) return;
         const stores = [...new Set(data.map(item => item["Loja Oficial"]))];
         const statuses = [...new Set(data.map(item => item["Estado Atual"]))];
-
-        storeFilter.innerHTML = '<option value="">Todas</option>';
-        stores.forEach(store => {
-            if(store) storeFilter.innerHTML += `<option value="${store}">${store}</option>`;
-        });
-
-        statusFilter.innerHTML = '<option value="">Todos</option>';
-        statuses.forEach(status => {
-            if(status) statusFilter.innerHTML += `<option value="${status}">${status}</option>`;
-        });
+        storeFilter.innerHTML = '<option value="">Todas</option>' + stores.filter(s => s).map(s => `<option value="${s}">${s}</option>`).join('');
+        statusFilter.innerHTML = '<option value="">Todos</option>' + statuses.filter(s => s).map(s => `<option value="${s}">${s}</option>`).join('');
     };
 
     const runAnalysis = () => {
         let filteredData = [...fullSalesData];
-        const startDate = startDateFilter.value;
-        const endDate = endDateFilter.value;
-        const sku = skuFilter.value.toUpperCase();
-        const store = storeFilter.value;
-        const status = statusFilter.value;
+        const startDate = startDateFilter.value, endDate = endDateFilter.value;
+        const sku = skuFilter.value.toUpperCase(), store = storeFilter.value, status = statusFilter.value;
 
         if (startDate) filteredData = filteredData.filter(item => item["Data de Compra"] && new Date(item["Data de Compra"]) >= new Date(startDate));
         if (endDate) filteredData = filteredData.filter(item => item["Data de Compra"] && new Date(item["Data de Compra"]) <= new Date(endDate));
@@ -119,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const processSalesData = (data) => {
-        const distributorCost = {};
+        const supplierCost = {};
         const productCount = {};
         let totalUnitsSold = 0;
 
@@ -128,12 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const units = item["Unidades"];
 
             if (sku && units && !isNaN(units)) {
-                const cost = costData[sku] || 0;
-                const distributor = sku.split('-').pop(); 
+                const productInfo = productDatabase[sku];
+                
+                // **A LÓGICA CORRETA DE CÁLCULO**
+                if (productInfo && productInfo.cost > 0) {
+                    const cost = productInfo.cost;
+                    const supplier = productInfo.supplier; // USA O FORNECEDOR CORRETO DO BANCO DE DADOS
 
-                if (cost > 0) {
-                    if (!distributorCost[distributor]) distributorCost[distributor] = 0;
-                    distributorCost[distributor] += cost * units;
+                    if (!supplierCost[supplier]) supplierCost[supplier] = 0;
+                    supplierCost[supplier] += cost * units;
                 }
 
                 if (!productCount[sku]) productCount[sku] = 0;
@@ -142,22 +127,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        renderResults(distributorCost, productCount, totalUnitsSold);
+        renderResults(supplierCost, productCount, totalUnitsSold);
     };
 
     // --- FUNÇÕES DE RENDERIZAÇÃO ---
-
-    const renderResults = (distributorCost, productCount, totalUnitsSold) => {
+    const renderResults = (supplierCost, productCount, totalUnitsSold) => {
         resultsContainer.innerHTML = '';
         let totalCostToPay = 0;
 
         let costHtml = '<h3>Custo a Pagar por Fornecedor</h3><table><thead><tr><th>Fornecedor</th><th>Custo Total</th></tr></thead><tbody>';
-        Object.keys(distributorCost).forEach(distributor => {
-            costHtml += `<tr><td>${distributor}</td><td>R$ ${distributorCost[distributor].toFixed(2)}</td></tr>`;
-            totalCostToPay += distributorCost[distributor];
+        Object.keys(supplierCost).sort().forEach(supplier => {
+            costHtml += `<tr><td>${supplier}</td><td>R$ ${supplierCost[supplier].toFixed(2)}</td></tr>`;
+            totalCostToPay += supplierCost[supplier];
         });
         costHtml += '</tbody></table>';
-        resultsContainer.innerHTML += costHtml;
+        resultsContainer.innerHTML = costHtml;
 
         let productHtml = '<br><h3>Unidades Vendidas por Produto</h3><table><thead><tr><th>SKU</th><th>Unidades</th></tr></thead><tbody>';
         Object.keys(productCount).sort().forEach(sku => {
@@ -171,21 +155,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const displayFullSalesTable = (data, headers) => {
-        if(data.length === 0 || !headers || headers.length === 0){
+        if (!data || data.length === 0 || !headers || headers.length === 0) {
             salesTableContainer.innerHTML = '<p>Nenhum dado de venda para exibir ou cabeçalhos não encontrados.</p>';
             return;
         }
-
-        let table = '<table><thead><tr>';
-        headers.forEach(h => table += `<th>${h}</th>`);
-        table += '</tr></thead><tbody>';
-
-        data.forEach(row => {
-            table += '<tr>';
-            headers.forEach(h => table += `<td>${row[h] !== undefined ? row[h] : ''}</td>`);
-            table += '</tr>';
-        });
-
+        let table = '<table><thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+        table += data.map(row => '<tr>' + headers.map(h => `<td>${row[h] !== undefined ? row[h] : ''}</td>`).join('') + '</tr>').join('');
         table += '</tbody></table>';
         salesTableContainer.innerHTML = table;
     };
@@ -202,16 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     dropArea.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files.length) {
-            handleFileSelect(fileInput.files[0]);
-        }
-    });
-
+    fileInput.addEventListener('change', () => { fileInput.files.length && handleFileSelect(fileInput.files[0]); });
     [startDateFilter, endDateFilter, skuFilter, storeFilter, statusFilter].forEach(filter => {
         filter.addEventListener('change', runAnalysis);
-        if (filter.type === 'text') {
-            filter.addEventListener('keyup', runAnalysis);
-        }
+        if (filter.type === 'text') filter.addEventListener('keyup', runAnalysis);
     });
 });
