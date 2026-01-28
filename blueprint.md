@@ -30,19 +30,3 @@ O projeto está hospedado na Vercel com deploy contínuo a partir do repositóri
     *   Todas as operações são salvas e lidas diretamente no banco de dados Firestore.
     *   Validação de formulário para garantir a integridade dos dados.
     *   Tabela de produtos atualizada em tempo real.
-
----
-
-## Plano de Ação Atual: Migração para Firebase Firestore
-
-**Objetivo:** Substituir o `localStorage` pelo Firebase Firestore para permitir o gerenciamento de produtos de forma centralizada e colaborativa.
-
-**Passos:**
-
-1.  **[CONCLUÍDO] Obter credenciais de configuração do Firebase.**
-2.  **[EM ANDAMENTO] Criar `firebase-config.js`:** Adicionar um novo arquivo para inicializar a conexão com o Firebase usando as credenciais fornecidas.
-3.  **[PENDENTE] Adicionar SDKs do Firebase:** Incluir os scripts da biblioteca do Firebase nos arquivos `index.html` и `cadastro.html`.
-4.  **[PENDENTE] Refatorar `cadastro.js`:** Substituir todas as funções que usam `localStorage` por suas contrapartes assíncronas do Firestore SDK (`getDocs`, `addDoc`, `updateDoc`, `deleteDoc`).
-5.  **[PENDENTE] Refatorar `main.js`:** Modificar a lógica de processamento do CSV para que os custos dos produtos sejam buscados do Firestore antes do cálculo.
-6.  **[PENDENTE] Testar e Validar:** Garantir que ambas as páginas funcionam corretamente com o novo banco de dados.
-7.  **[PENDENTE] Enviar para o GitHub:** Fazer o commit e push das alterações para que a Vercel publique a nova versão.
