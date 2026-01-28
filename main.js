@@ -51,10 +51,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Buscar custos do Firestore ANTES de processar o arquivo
         costData = await buscarCustosDoFirestore();
 
-        // 2. Processar o arquivo CSV
+        // 2. Processar o arquivo CSV com o delimitador correto
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
+            delimiter: ";", // <-- A CORREÇÃO ESTÁ AQUI!
             complete: (results) => {
                 fullSalesData = results.data;
                 populateFilters(fullSalesData);
