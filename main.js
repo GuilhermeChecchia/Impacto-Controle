@@ -43,24 +43,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LÓGICA DE UPLOAD E PROCESSAMENTO ---
 
     const handleFileSelect = async (file) => {
-        if (!file || !file.type.match('text/csv')) {
+        if (!file || !(file.type.match('text/csv') || file.name.endsWith('.csv'))) {
             alert('Por favor, selecione um arquivo CSV.');
             return;
         }
 
         costData = await buscarCustosDoFirestore();
 
+        // Abordagem Robusta: Deixar o Papa Parse autodetectar o formato.
         Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            delimiter: ";",
-            newline: "\r\n", // <-- A CORREÇÃO FINAL ESTÁ AQUI!
+            header: true,         // O cabeçalho é a primeira linha.
+            skipEmptyLines: true, // Pular linhas vazias.
+            dynamicTyping: true,  // Converte tipos (números, booleanos) automaticamente.
+            // Removido 'delimiter' e 'newline' para permitir autodeteção.
+            
             complete: (results) => {
+                // NOVO: Verificador de erros de parsing
                 if (results.errors.length > 0) {
-                    console.error("Erros de parsing:", results.errors);
-                    alert("Ocorreram erros ao ler o arquivo CSV. Verifique o formato do arquivo e tente novamente.");
+                    console.error("Erros de parsing do CSV:", results.errors);
+                    alert(`Ocorreram erros ao ler o arquivo CSV. O erro mais comum é a falta de um cabeçalho ou delimitadores inconsistentes. Verifique o console (F12) para detalhes e tente novamente.`);
                     return;
                 }
+
+                if (!results.data || results.data.length === 0) {
+                    alert("O arquivo CSV parece estar vazio ou em um formato não reconhecido.");
+                    return;
+                }
+                
                 fullSalesData = results.data;
                 populateFilters(fullSalesData);
                 displayFullSalesTable(fullSalesData);
@@ -77,6 +86,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LÓGICA DOS FILTROS E ANÁLISE ---
 
     const populateFilters = (data) => {
+        // Validação: Garante que os campos existem antes de tentar usá-los.
+        if (!data[0] || !data[0]["Loja Oficial"] || !data[0]["Estado Atual"]) {
+            console.warn("Os cabeçalhos 'Loja Oficial' ou 'Estado Atual' não foram encontrados no CSV.");
+            return;
+        }
+
         const stores = [...new Set(data.map(item => item["Loja Oficial"]))];
         const statuses = [...new Set(data.map(item => item["Estado Atual"]))];
 
@@ -99,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const store = storeFilter.value;
         const status = statusFilter.value;
 
+        // Filtros com checagem de segurança
         if (startDate) filteredData = filteredData.filter(item => item["Data de Compra"] && new Date(item["Data de Compra"]) >= new Date(startDate));
         if (endDate) filteredData = filteredData.filter(item => item["Data de Compra"] && new Date(item["Data de Compra"]) <= new Date(endDate));
         if (sku) filteredData = filteredData.filter(item => item["SKU"] && item["SKU"].toUpperCase().includes(sku));
@@ -115,22 +131,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         data.forEach(item => {
             const sku = item["SKU"];
-            const units = parseInt(item["Unidades"], 10);
+            const units = item["Unidades"]; // dynamicTyping já converte para número
 
-            if (sku && !isNaN(units)) {
+            if (sku && units && !isNaN(units)) {
                 const cost = costData[sku] || 0;
                 const distributor = sku.split('-').pop(); 
 
                 if (cost > 0) {
-                    if (!distributorCost[distributor]) {
-                        distributorCost[distributor] = 0;
-                    }
+                    if (!distributorCost[distributor]) distributorCost[distributor] = 0;
                     distributorCost[distributor] += cost * units;
                 }
 
-                if (!productCount[sku]) {
-                    productCount[sku] = 0;
-                }
+                if (!productCount[sku]) productCount[sku] = 0;
                 productCount[sku] += units;
                 totalUnitsSold += units;
             }
@@ -145,19 +157,19 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsContainer.innerHTML = '';
         let totalCostToPay = 0;
 
-        let costHtml = '<h3>Custo a Pagar por Fornecedor</h3><table><tr><th>Fornecedor</th><th>Custo Total</th></tr>';
-        for (const distributor in distributorCost) {
+        let costHtml = '<h3>Custo a Pagar por Fornecedor</h3><table><thead><tr><th>Fornecedor</th><th>Custo Total</th></tr></thead><tbody>';
+        Object.keys(distributorCost).forEach(distributor => {
             costHtml += `<tr><td>${distributor}</td><td>R$ ${distributorCost[distributor].toFixed(2)}</td></tr>`;
             totalCostToPay += distributorCost[distributor];
-        }
-        costHtml += '</table>';
-        resultsContainer.innerHTML += costHtml;
+        });
+        costHtml += '</tbody></table>';
+        resultsContainer.innerHTML = costHtml;
 
-        let productHtml = '<br><h3>Unidades Vendidas por Produto</h3><table><tr><th>SKU</th><th>Unidades</th></tr>';
-        for (const sku in productCount) {
+        let productHtml = '<br><h3>Unidades Vendidas por Produto</h3><table><thead><tr><th>SKU</th><th>Unidades</th></tr></thead><tbody>';
+        Object.keys(productCount).sort().forEach(sku => {
             productHtml += `<tr><td>${sku}</td><td>${productCount[sku]}</td></tr>`;
-        }
-        productHtml += '</table>';
+        });
+        productHtml += '</tbody></table>';
         resultsContainer.innerHTML += productHtml;
         
         totalCostToPayValue.textContent = `R$ ${totalCostToPay.toFixed(2)}`;
@@ -170,14 +182,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const headers = Object.keys(data[0]);
+        const headers = results.meta.fields;
         let table = '<table><thead><tr>';
         headers.forEach(h => table += `<th>${h}</th>`);
         table += '</tr></thead><tbody>';
 
-        data.slice(0, 100).forEach(row => { // Limita a 100 linhas para performance
+        data.forEach(row => {
             table += '<tr>';
-            headers.forEach(h => table += `<td>${row[h] || ''}</td>`);
+            headers.forEach(h => table += `<td>${row[h] !== undefined ? row[h] : ''}</td>`);
             table += '</tr>';
         });
 
@@ -186,21 +198,22 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- EVENT LISTENERS ---
-    dropArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropArea.classList.add('active');
-    });
-    dropArea.addEventListener('dragleave', () => {
-        dropArea.classList.remove('active');
-    });
+    dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('active'); });
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('active'));
     dropArea.addEventListener('drop', (e) => {
         e.preventDefault();
         dropArea.classList.remove('active');
-        fileInput.files = e.dataTransfer.files;
-        handleFileSelect(fileInput.files[0]);
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect(fileInput.files[0]);
+        }
     });
     dropArea.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', () => handleFileSelect(fileInput.files[0]));
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) {
+            handleFileSelect(fileInput.files[0]);
+        }
+    });
 
     [startDateFilter, endDateFilter, skuFilter, storeFilter, statusFilter].forEach(filter => {
         filter.addEventListener('change', runAnalysis);
@@ -208,5 +221,4 @@ document.addEventListener('DOMContentLoaded', () => {
             filter.addEventListener('keyup', runAnalysis);
         }
     });
-
 });
