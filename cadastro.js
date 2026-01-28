@@ -1,155 +1,213 @@
+import { db } from './firebase-config.js';
+import {
+    collection,
+    addDoc,
+    getDocs,
+    doc,
+    updateDoc,
+    deleteDoc,
+    query,
+    where
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
 document.addEventListener('DOMContentLoaded', () => {
     const skuForm = document.getElementById('sku-form');
     const skuListContainer = document.getElementById('sku-list-container');
-    const editingSkuInput = document.getElementById('editing-sku');
+    const editingSkuId = document.getElementById('editing-sku');
     const formSubmitButton = document.getElementById('form-submit-button');
     const cancelEditButton = document.getElementById('cancel-edit-button');
-    const formDescription = document.getElementById('form-description');
 
-    // Campos do formulário
-    const skuQuantity = document.getElementById('sku-quantity');
-    const skuName = document.getElementById('sku-name');
-    const skuColor = document.getElementById('sku-color');
-    const skuDistributor = document.getElementById('sku-distributor');
-    const skuProductCost = document.getElementById('sku-product-cost');
-    const skuPackagingCost = document.getElementById('sku-packaging-cost');
+    const produtosCollection = collection(db, 'produtos');
 
-    const DB_KEY = 'impactoVendas_skuDB';
+    // --- FUNÇÕES DE INTERAÇÃO COM O FIRESTORE ---
 
-    function getSkuDatabase() {
-        return JSON.parse(localStorage.getItem(DB_KEY)) || [];
-    }
-
-    function saveSkuDatabase(db) {
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-    }
-
-    function renderSkuList() {
-        const db = getSkuDatabase();
-        skuListContainer.innerHTML = '';
-        if (db.length === 0) {
-            skuListContainer.innerHTML = '<p class="placeholder-text">Nenhum produto cadastrado ainda.</p>';
-            return;
-        }
-
-        db.forEach(item => {
-            const listItem = document.createElement('div');
-            listItem.className = 'sku-list-item';
-            listItem.innerHTML = `
-                <div class="sku-list-item-id">${item.sku}</div>
-                <div class="sku-list-item-distributor">Fornecedor: <strong>${item.distributor}</strong></div>
-                <div class="sku-list-item-cost">Custo Total: <strong>${(parseFloat(item.productCost) + parseFloat(item.packagingCost)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></div>
-                <div class="sku-list-item-actions">
-                    <button class="edit-btn" data-sku="${item.sku}">Editar</button>
-                    <button class="delete-btn" data-sku="${item.sku}">Excluir</button>
-                </div>
-            `;
-            skuListContainer.appendChild(listItem);
-        });
-    }
-
-    function enterEditMode(sku) {
-        const db = getSkuDatabase();
-        const itemToEdit = db.find(item => item.sku === sku);
-        if (!itemToEdit) return;
-
-        // Preenche o formulário
-        const [quantity, name, color] = itemToEdit.sku.split('-');
-        skuQuantity.value = quantity;
-        skuName.value = name;
-        skuColor.value = color;
-        skuDistributor.value = itemToEdit.distributor;
-        skuProductCost.value = itemToEdit.productCost;
-        skuPackagingCost.value = itemToEdit.packagingCost;
-
-        // Entra no modo de edição
-        editingSkuInput.value = sku;
-        formSubmitButton.textContent = 'Atualizar Produto';
-        formDescription.textContent = `Editando o produto: ${sku}. Apenas fornecedor e custos podem ser alterados.`;
-        cancelEditButton.style.display = 'inline-block';
-        
-        // Desabilita campos do SKU
-        skuQuantity.disabled = true;
-        skuName.disabled = true;
-        skuColor.disabled = true;
-
-        window.scrollTo(0, 0); // Rola a página para o topo
-    }
-
-    function exitEditMode() {
-        skuForm.reset();
-        editingSkuInput.value = '';
-        formSubmitButton.textContent = 'Salvar Produto';
-        formDescription.textContent = 'Preencha os dados para gerar o SKU e salvar na base de custos.';
-        cancelEditButton.style.display = 'none';
-
-        // Habilita campos do SKU
-        skuQuantity.disabled = false;
-        skuName.disabled = false;
-        skuColor.disabled = false;
-    }
-
-    skuForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-
-        const db = getSkuDatabase();
-        const isEditing = editingSkuInput.value !== '';
-
-        if (isEditing) {
-            // Lógica de Atualização
-            const originalSku = editingSkuInput.value;
-            const itemIndex = db.findIndex(item => item.sku === originalSku);
-            if (itemIndex > -1) {
-                db[itemIndex].distributor = skuDistributor.value.trim();
-                db[itemIndex].productCost = parseFloat(skuProductCost.value);
-                db[itemIndex].packagingCost = parseFloat(skuPackagingCost.value);
-                alert(`Produto ${originalSku} atualizado com sucesso!`);
-            }
-        } else {
-            // Lógica de Criação
-            const newSku = `${skuQuantity.value.trim()}-${skuName.value.trim().toUpperCase()}-${skuColor.value.trim().toUpperCase()}`;
-            const alreadyExists = db.some(item => item.sku === newSku);
-            if (alreadyExists) {
-                alert(`Erro: O SKU '${newSku}' já está cadastrado.`);
+    const carregarProdutos = async () => {
+        skuListContainer.innerHTML = '<p>Carregando produtos...</p>';
+        try {
+            const querySnapshot = await getDocs(produtosCollection);
+            const produtos = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (produtos.length === 0) {
+                skuListContainer.innerHTML = '<p>Nenhum produto cadastrado ainda.</p>';
                 return;
             }
 
-            const newItem = {
-                sku: newSku,
-                distributor: skuDistributor.value.trim(),
-                productCost: parseFloat(skuProductCost.value),
-                packagingCost: parseFloat(skuPackagingCost.value)
-            };
-            db.push(newItem);
-            alert(`Produto ${newSku} salvo com sucesso!`);
+            skuListContainer.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Nome</th>
+                            <th>Fornecedor</th>
+                            <th>Custo Total</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${produtos.map(p => `
+                            <tr data-id="${p.id}">
+                                <td>${p.sku}</td>
+                                <td>${p.nome}</td>
+                                <td>${p.fornecedor}</td>
+                                <td>R$ ${p.custoTotal.toFixed(2)}</td>
+                                <td class="action-buttons">
+                                    <button class="edit-btn">Editar</button>
+                                    <button class="delete-btn">Excluir</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } catch (error) {
+            console.error("Erro ao carregar produtos: ", error);
+            skuListContainer.innerHTML = '<p class="error-message">Não foi possível carregar os produtos.</p>';
+        }
+    };
+
+    const salvarProduto = async (produto) => {
+        try {
+            // Verifica se o SKU já existe
+            const q = query(produtosCollection, where("sku", "==", produto.sku));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                alert('Erro: Este SKU já está cadastrado.');
+                return;
+            }
+            await addDoc(produtosCollection, produto);
+            alert('Produto salvo com sucesso!');
+        } catch (error) {
+            console.error("Erro ao salvar produto: ", error);
+            alert('Ocorreu um erro ao salvar o produto.');
+        }
+    };
+
+    const editarProduto = async (id, produto) => {
+        try {
+            const produtoDoc = doc(db, 'produtos', id);
+             // Verifica se o SKU já existe em outro documento
+             const q = query(produtosCollection, where("sku", "==", produto.sku));
+             const querySnapshot = await getDocs(q);
+             if (!querySnapshot.empty) {
+                let idEncontrado = querySnapshot.docs[0].id;
+                if(idEncontrado !== id) {
+                    alert('Erro: Este SKU já está cadastrado em outro produto.');
+                    return;
+                }
+             }
+
+            await updateDoc(produtoDoc, produto);
+            alert('Produto atualizado com sucesso!');
+        } catch (error) {
+            console.error("Erro ao editar produto: ", error);
+            alert('Ocorreu um erro ao editar o produto.');
+        }
+    };
+
+    const excluirProduto = async (id) => {
+        if (!confirm('Tem certeza que deseja excluir este produto?')) {
+            return;
+        }
+        try {
+            const produtoDoc = doc(db, 'produtos', id);
+            await deleteDoc(produtoDoc);
+            alert('Produto excluído com sucesso!');
+            carregarProdutos(); // Recarrega a lista
+        } catch (error) {
+            console.error("Erro ao excluir produto: ", error);
+            alert('Ocorreu um erro ao excluir o produto.');
+        }
+    };
+
+
+    // --- LÓGICA DO FORMULÁRIO ---
+
+    skuForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const id = editingSkuId.value;
+        const quantidade = document.getElementById('sku-quantity').value;
+        const nome = document.getElementById('sku-name').value.toUpperCase();
+        const cor = document.getElementById('sku-color').value.toUpperCase();
+        const fornecedor = document.getElementById('sku-distributor').value.toUpperCase();
+        const custoProduto = parseFloat(document.getElementById('sku-product-cost').value);
+        const custoEmbalagem = parseFloat(document.getElementById('sku-packaging-cost').value);
+
+        if (isNaN(custoProduto) || isNaN(custoEmbalagem)) {
+            alert('Por favor, insira valores de custo válidos.');
+            return;
         }
 
-        saveSkuDatabase(db);
-        renderSkuList();
-        exitEditMode();
+        const generatedSku = `${quantidade}-${nome}-${cor}`;
+        const custoTotal = custoProduto + custoEmbalagem;
+
+        const produto = {
+            sku: generatedSku,
+            nome: `${quantidade} ${nome} ${cor}`,
+            fornecedor,
+            custoTotal,
+            // Armazenando dados originais para edição
+            quantidade: parseInt(quantidade),
+            nomeBase: nome,
+            cor: cor,
+            custoProduto: custoProduto,
+            custoEmbalagem: custoEmbalagem
+        };
+
+        if (id) {
+            await editarProduto(id, produto);
+        } else {
+            await salvarProduto(produto);
+        }
+
+        resetarFormulario();
+        carregarProdutos();
     });
 
-    skuListContainer.addEventListener('click', (e) => {
-        const target = e.target;
-        const sku = target.dataset.sku;
+    const resetarFormulario = () => {
+        skuForm.reset();
+        editingSkuId.value = '';
+        formSubmitButton.textContent = 'Salvar Produto';
+        cancelEditButton.style.display = 'none';
+        document.getElementById('form-description').textContent = 'Preencha os dados para gerar o SKU e salvar na base de custos.';
+    };
 
-        if (target.classList.contains('edit-btn')) {
-            enterEditMode(sku);
-        }
+    cancelEditButton.addEventListener('click', resetarFormulario);
+
+    // --- LÓGICA DA LISTA DE PRODUTOS (DELEGAÇÃO DE EVENTOS) ---
+
+    skuListContainer.addEventListener('click', async (e) => {
+        const target = e.target;
+        const tr = target.closest('tr');
+        if (!tr) return;
+
+        const id = tr.dataset.id;
 
         if (target.classList.contains('delete-btn')) {
-            if (confirm(`Tem certeza que deseja excluir o produto ${sku}? Esta ação não pode ser desfeita.`)) {
-                let db = getSkuDatabase();
-                db = db.filter(item => item.sku !== sku);
-                saveSkuDatabase(db);
-                renderSkuList();
-                alert(`Produto ${sku} excluído com sucesso.`);
+            excluirProduto(id);
+        }
+
+        if (target.classList.contains('edit-btn')) {
+            const querySnapshot = await getDocs(produtosCollection);
+            const produto = querySnapshot.docs.find(doc => doc.id === id)?.data();
+
+            if (produto) {
+                document.getElementById('editing-sku').value = id;
+                document.getElementById('sku-quantity').value = produto.quantidade;
+                document.getElementById('sku-name').value = produto.nomeBase;
+                document.getElementById('sku-color').value = produto.cor;
+                document.getElementById('sku-distributor').value = produto.fornecedor;
+                document.getElementById('sku-product-cost').value = produto.custoProduto;
+                document.getElementById('sku-packaging-cost').value = produto.custoEmbalagem;
+
+                formSubmitButton.textContent = 'Atualizar Produto';
+                cancelEditButton.style.display = 'inline-block';
+                document.getElementById('form-description').textContent = `Editando o produto ${produto.sku}.`;
+                skuForm.scrollIntoView({ behavior: 'smooth' });
             }
         }
     });
 
-    cancelEditButton.addEventListener('click', exitEditMode);
-
-    // Renderização inicial
-    renderSkuList();
+    // Carregamento inicial
+    carregarProdutos();
 });
