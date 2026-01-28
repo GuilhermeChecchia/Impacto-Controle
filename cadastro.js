@@ -6,208 +6,153 @@ import {
     doc,
     updateDoc,
     deleteDoc,
+    serverTimestamp, // Importa o serverTimestamp
     query,
-    where,
-    onSnapshot // <-- Importando o listener em tempo real
+    orderBy         // Importa as funções de consulta e ordenação
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
-    const skuForm = document.getElementById('sku-form');
-    const skuListContainer = document.getElementById('sku-list-container');
-    const editingSkuId = document.getElementById('editing-sku');
-    const formSubmitButton = document.getElementById('form-submit-button');
-    const cancelEditButton = document.getElementById('cancel-edit-button');
+    const productForm = document.getElementById('product-form');
+    const productList = document.getElementById('product-list');
+    const formTitle = document.getElementById('form-title');
+    const submitButton = productForm.querySelector('button[type="submit"]');
+    let editingProductId = null;
 
-    const produtosCollection = collection(db, 'produtos');
+    // --- FUNÇÃO PARA RENDERIZAR PRODUTOS EM UMA TABELA ---
+    const renderProdutos = (produtos) => {
+        productList.innerHTML = ''; // Limpa a lista atual
 
-    // --- FUNÇÃO DE LISTENER EM TEMPO REAL ---
-    const escutarMudancasProdutos = () => {
-        skuListContainer.innerHTML = '<p>Carregando produtos...</p>';
-        
-        onSnapshot(produtosCollection, (querySnapshot) => {
-            const produtos = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
-            if (querySnapshot.empty) {
-                skuListContainer.innerHTML = '<p>Nenhum produto cadastrado ainda. Comece adicionando um!</p>';
-                return;
-            }
+        // Cria a estrutura da tabela
+        const table = document.createElement('table');
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th>Nome do Produto</th>
+                    <th>Fornecedor</th>
+                    <th>Custo Total (R$)</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        `;
+        const tbody = table.querySelector('tbody');
 
-            skuListContainer.innerHTML = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>SKU</th>
-                            <th>Nome</th>
-                            <th>Fornecedor</th>
-                            <th>Custo Total</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${produtos.map(p => `
-                            <tr data-id="${p.id}">
-                                <td>${p.sku}</td>
-                                <td>${p.nome}</td>
-                                <td>${p.fornecedor}</td>
-                                <td>R$ ${p.custoTotal.toFixed(2)}</td>
-                                <td class="action-buttons">
-                                    <button class="edit-btn">Editar</button>
-                                    <button class="delete-btn">Excluir</button>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+        // Popula a tabela com os produtos
+        produtos.forEach(produto => {
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-id', produto.id);
+            tr.innerHTML = `
+                <td>${produto.sku}</td>
+                <td>${produto.nome}</td>
+                <td>${produto.fornecedor}</td>
+                <td>${produto.custoTotal.toFixed(2)}</td>
+                <td class="actions">
+                    <button class="edit-btn">Editar</button>
+                    <button class="delete-btn">Excluir</button>
+                </td>
             `;
-        }, (error) => {
-            console.error("Erro ao escutar o banco de dados: ", error);
-            skuListContainer.innerHTML = '<p class="error-message"><b>Erro de conexão.</b> Não foi possível carregar os produtos. Verifique se as <a href="https://console.firebase.google.com/project/' + db.app.options.projectId + '/firestore/rules" target="_blank">regras de segurança do Firestore</a> foram publicadas corretamente.</p>';
+            tbody.appendChild(tr);
         });
+
+        productList.appendChild(table);
     };
 
-    // --- FUNÇÕES DE INTERAÇÃO COM O FIRESTORE ---
-
-    const salvarProduto = async (produto) => {
+    // --- FUNÇÃO PARA BUSCAR E ORDENAR OS PRODUTOS ---
+    const getProdutos = async () => {
         try {
-            const q = query(produtosCollection, where("sku", "==", produto.sku));
+            // **A CORREÇÃO ESTÁ AQUI: Query para ordenar por data de criação**
+            const q = query(collection(db, "produtos"), orderBy("createdAt", "asc"));
             const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                alert('Erro: Este SKU já está cadastrado.');
-                return;
+
+            const produtos = [];
+            querySnapshot.forEach((doc) => {
+                produtos.push({ id: doc.id, ...doc.data() });
+            });
+            renderProdutos(produtos);
+        } catch (error) {
+            console.error("Erro ao buscar produtos: ", error);
+        }
+    };
+
+    // --- MANIPULAÇÃO DO FORMULÁRIO (CRIAR E ATUALIZAR) ---
+    productForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const sku = document.getElementById('sku').value.trim();
+        const nome = document.getElementById('nome').value.trim();
+        const fornecedor = document.getElementById('fornecedor').value.trim();
+        const custoTotal = parseFloat(document.getElementById('custoTotal').value);
+
+        if (!sku || !nome || !fornecedor || isNaN(custoTotal)) {
+            alert('Por favor, preencha todos os campos corretamente.');
+            return;
+        }
+
+        const produtoData = { sku, nome, fornecedor, custoTotal };
+
+        try {
+            if (editingProductId) {
+                // Atualizar produto existente
+                const productRef = doc(db, "produtos", editingProductId);
+                await updateDoc(productRef, produtoData);
+                alert('Produto atualizado com sucesso!');
+            } else {
+                // **A CORREÇÃO ESTÁ AQUI: Adiciona o timestamp na criação**
+                produtoData.createdAt = serverTimestamp();
+                await addDoc(collection(db, "produtos"), produtoData);
+                alert('Produto cadastrado com sucesso!');
             }
-            await addDoc(produtosCollection, produto);
-            alert('Produto salvo com sucesso!');
+            resetForm();
+            getProdutos(); // Recarrega a lista ordenada
         } catch (error) {
             console.error("Erro ao salvar produto: ", error);
-            alert('Ocorreu um erro ao salvar o produto. Verifique sua conexão e as regras de segurança do Firebase.');
+            alert('Ocorreu um erro ao salvar o produto.');
         }
-    };
-
-    const editarProduto = async (id, produto) => {
-        try {
-            const produtoDoc = doc(db, 'produtos', id);
-             const q = query(produtosCollection, where("sku", "==", produto.sku));
-             const querySnapshot = await getDocs(q);
-             if (!querySnapshot.empty) {
-                let idEncontrado = querySnapshot.docs[0].id;
-                if(idEncontrado !== id) {
-                    alert('Erro: Este SKU já está cadastrado em outro produto.');
-                    return;
-                }
-             }
-
-            await updateDoc(produtoDoc, produto);
-            alert('Produto atualizado com sucesso!');
-        } catch (error) {
-            console.error("Erro ao editar produto: ", error);
-            alert('Ocorreu um erro ao editar o produto.');
-        }
-    };
-
-    const excluirProduto = async (id) => {
-        if (!confirm('Tem certeza que deseja excluir este produto?')) {
-            return;
-        }
-        try {
-            const produtoDoc = doc(db, 'produtos', id);
-            await deleteDoc(produtoDoc);
-            alert('Produto excluído com sucesso!');
-            // A lista irá atualizar sozinha graças ao onSnapshot
-        } catch (error) {
-            console.error("Erro ao excluir produto: ", error);
-            alert('Ocorreu um erro ao excluir o produto.');
-        }
-    };
-
-
-    // --- LÓGICA DO FORMULÁRIO ---
-
-    skuForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const id = editingSkuId.value;
-        const quantidade = document.getElementById('sku-quantity').value;
-        const nome = document.getElementById('sku-name').value.toUpperCase();
-        const cor = document.getElementById('sku-color').value.toUpperCase();
-        const fornecedor = document.getElementById('sku-distributor').value.toUpperCase();
-        const custoProduto = parseFloat(document.getElementById('sku-product-cost').value);
-        const custoEmbalagem = parseFloat(document.getElementById('sku-packaging-cost').value);
-
-        if (isNaN(custoProduto) || isNaN(custoEmbalagem)) {
-            alert('Por favor, insira valores de custo válidos.');
-            return;
-        }
-
-        const generatedSku = `${quantidade}-${nome}-${cor}`;
-        const custoTotal = custoProduto + custoEmbalagem;
-
-        const produto = {
-            sku: generatedSku,
-            nome: `${quantidade} ${nome} ${cor}`,
-            fornecedor,
-            custoTotal,
-            quantidade: parseInt(quantidade),
-            nomeBase: nome,
-            cor: cor,
-            custoProduto: custoProduto,
-            custoEmbalagem: custoEmbalagem
-        };
-
-        if (id) {
-            await editarProduto(id, produto);
-        } else {
-            await salvarProduto(produto);
-        }
-
-        resetarFormulario();
-        // A lista irá atualizar sozinha. Nenhuma ação extra é necessária.
     });
 
-    const resetarFormulario = () => {
-        skuForm.reset();
-        editingSkuId.value = '';
-        formSubmitButton.textContent = 'Salvar Produto';
-        cancelEditButton.style.display = 'none';
-        document.getElementById('form-description').textContent = 'Preencha os dados para gerar o SKU e salvar na base de custos.';
-    };
-
-    cancelEditButton.addEventListener('click', resetarFormulario);
-
-    // --- LÓGICA DA LISTA DE PRODUTOS (DELEGAÇÃO DE EVENTOS) ---
-
-    skuListContainer.addEventListener('click', async (e) => {
+    // --- AÇÕES DE EDITAR E EXCLUIR ---
+    productList.addEventListener('click', async (e) => {
         const target = e.target;
         const tr = target.closest('tr');
-        if (!tr) return;
-
-        const id = tr.dataset.id;
-
-        if (target.classList.contains('delete-btn')) {
-            excluirProduto(id);
-        }
+        const id = tr.getAttribute('data-id');
 
         if (target.classList.contains('edit-btn')) {
-            // Para edição, ainda precisamos buscar os dados específicos daquele item
-            const querySnapshot = await getDocs(collection(db, 'produtos'));
-            const produto = querySnapshot.docs.find(doc => doc.id === id)?.data();
+            // Preenche o formulário para edição
+            const produto = (await getDocs(query(collection(db, "produtos")))).docs.find(doc => doc.id === id).data();
+            document.getElementById('sku').value = produto.sku;
+            document.getElementById('nome').value = produto.nome;
+            document.getElementById('fornecedor').value = produto.fornecedor;
+            document.getElementById('custoTotal').value = produto.custoTotal;
+            
+            editingProductId = id;
+            formTitle.textContent = 'Editar Produto';
+            submitButton.textContent = 'Atualizar';
+            window.scrollTo(0, 0);
+        }
 
-            if (produto) {
-                document.getElementById('editing-sku').value = id;
-                document.getElementById('sku-quantity').value = produto.quantidade;
-                document.getElementById('sku-name').value = produto.nomeBase;
-                document.getElementById('sku-color').value = produto.cor;
-                document.getElementById('sku-distributor').value = produto.fornecedor;
-                document.getElementById('sku-product-cost').value = produto.custoProduto;
-                document.getElementById('sku-packaging-cost').value = produto.custoEmbalagem;
-
-                formSubmitButton.textContent = 'Atualizar Produto';
-                cancelEditButton.style.display = 'inline-block';
-                document.getElementById('form-description').textContent = `Editando o produto ${produto.sku}.`;
-                skuForm.scrollIntoView({ behavior: 'smooth' });
+        if (target.classList.contains('delete-btn')) {
+            if (confirm('Tem certeza que deseja excluir este produto?')) {
+                try {
+                    await deleteDoc(doc(db, "produtos", id));
+                    alert('Produto excluído com sucesso!');
+                    getProdutos(); // Recarrega a lista
+                } catch (error) {
+                    console.error("Erro ao excluir produto: ", error);
+                    alert('Ocorreu um erro ao excluir o produto.');
+                }
             }
         }
     });
+    
+    // --- FUNÇÃO PARA RESETAR O FORMULÁRIO ---
+    const resetForm = () => {
+        productForm.reset();
+        editingProductId = null;
+        formTitle.textContent = 'Cadastrar Novo Produto';
+        submitButton.textContent = 'Salvar';
+    };
 
-    // Inicia o listener para carregar os dados e observar mudanças
-    escutarMudancasProdutos();
+    // Carrega a lista inicial de produtos
+    getProdutos();
 });
