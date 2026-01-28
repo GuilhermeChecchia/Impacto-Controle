@@ -48,24 +48,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 1. Buscar custos do Firestore ANTES de processar o arquivo
         costData = await buscarCustosDoFirestore();
 
-        // 2. Processar o arquivo CSV com o delimitador correto
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
-            delimiter: ";", // <-- A CORREÇÃO ESTÁ AQUI!
+            delimiter: ";",
+            newline: "\r\n", // <-- A CORREÇÃO FINAL ESTÁ AQUI!
             complete: (results) => {
+                if (results.errors.length > 0) {
+                    console.error("Erros de parsing:", results.errors);
+                    alert("Ocorreram erros ao ler o arquivo CSV. Verifique o formato do arquivo e tente novamente.");
+                    return;
+                }
                 fullSalesData = results.data;
                 populateFilters(fullSalesData);
                 displayFullSalesTable(fullSalesData);
-                runAnalysis(); // Executa a análise inicial
+                runAnalysis(); 
                 analysisContainer.style.display = 'block';
                 analysisContainer.scrollIntoView({ behavior: 'smooth' });
             },
             error: (err) => {
-                alert(`Erro ao processar o arquivo CSV: ${err.message}`);
+                alert(`Erro crítico ao processar o arquivo CSV: ${err.message}`);
             }
         });
     };
@@ -95,14 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const store = storeFilter.value;
         const status = statusFilter.value;
 
-        // Aplica filtros
-        if (startDate) filteredData = filteredData.filter(item => new Date(item["Data de Compra"]) >= new Date(startDate));
-        if (endDate) filteredData = filteredData.filter(item => new Date(item["Data de Compra"]) <= new Date(endDate));
+        if (startDate) filteredData = filteredData.filter(item => item["Data de Compra"] && new Date(item["Data de Compra"]) >= new Date(startDate));
+        if (endDate) filteredData = filteredData.filter(item => item["Data de Compra"] && new Date(item["Data de Compra"]) <= new Date(endDate));
         if (sku) filteredData = filteredData.filter(item => item["SKU"] && item["SKU"].toUpperCase().includes(sku));
         if (store) filteredData = filteredData.filter(item => item["Loja Oficial"] === store);
         if (status) filteredData = filteredData.filter(item => item["Estado Atual"] === status);
 
-        // Processa os dados filtrados
         processSalesData(filteredData);
     };
 
@@ -115,9 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const sku = item["SKU"];
             const units = parseInt(item["Unidades"], 10);
 
-            if (sku && units) {
+            if (sku && !isNaN(units)) {
                 const cost = costData[sku] || 0;
-                const distributor = sku.split('-').pop(); // Assume que o fornecedor é a última parte do SKU
+                const distributor = sku.split('-').pop(); 
 
                 if (cost > 0) {
                     if (!distributorCost[distributor]) {
@@ -143,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsContainer.innerHTML = '';
         let totalCostToPay = 0;
 
-        // Tabela de Custos por Fornecedor
         let costHtml = '<h3>Custo a Pagar por Fornecedor</h3><table><tr><th>Fornecedor</th><th>Custo Total</th></tr>';
         for (const distributor in distributorCost) {
             costHtml += `<tr><td>${distributor}</td><td>R$ ${distributorCost[distributor].toFixed(2)}</td></tr>`;
@@ -152,7 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
         costHtml += '</table>';
         resultsContainer.innerHTML += costHtml;
 
-        // Tabela de Unidades por Produto
         let productHtml = '<br><h3>Unidades Vendidas por Produto</h3><table><tr><th>SKU</th><th>Unidades</th></tr>';
         for (const sku in productCount) {
             productHtml += `<tr><td>${sku}</td><td>${productCount[sku]}</td></tr>`;
@@ -160,7 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
         productHtml += '</table>';
         resultsContainer.innerHTML += productHtml;
         
-        // Atualiza os cards de resumo
         totalCostToPayValue.textContent = `R$ ${totalCostToPay.toFixed(2)}`;
         totalUnitsSoldValue.textContent = totalUnitsSold.toString();
     };
@@ -176,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers.forEach(h => table += `<th>${h}</th>`);
         table += '</tr></thead><tbody>';
 
-        data.forEach(row => {
+        data.slice(0, 100).forEach(row => { // Limita a 100 linhas para performance
             table += '<tr>';
             headers.forEach(h => table += `<td>${row[h] || ''}</td>`);
             table += '</tr>';
@@ -203,7 +202,6 @@ document.addEventListener('DOMContentLoaded', () => {
     dropArea.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => handleFileSelect(fileInput.files[0]));
 
-    // Listeners para os filtros
     [startDateFilter, endDateFilter, skuFilter, storeFilter, statusFilter].forEach(filter => {
         filter.addEventListener('change', runAnalysis);
         if (filter.type === 'text') {
