@@ -26,13 +26,23 @@ body {
     background-color: var(--cor-fundo-principal);
     color: var(--cor-texto-principal);
     line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
 .container {
     max-width: 1200px;
     margin: 2rem auto;
     padding: 0 2rem;
+    width: 100%;
+    box-sizing: border-box;
 }
+
+main.container {
+    flex: 1;
+}
+
 
 /* === HEADER E NAVEGAÇÃO === */
 header {
@@ -85,7 +95,7 @@ section {
     padding: 2rem;
     border-radius: 12px;
     box-shadow: var(--sombra-profunda);
-    margin-bottom: 2rem;
+    margin-bottom: 2rem; /* Espaçamento entre as seções */
 }
 
 h2 {
@@ -169,7 +179,7 @@ button:hover, .button:hover {
 #filters {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
+    gap: 1.5rem; /* Espaçamento entre os filtros */
 }
 
 /* === CARDS DE RESUMO (KPIs) === */
@@ -252,3 +262,13 @@ tbody tr:hover {
 
 .delete-btn { background-color: var(--cor-erro); color: white; }
 .delete-btn:hover { box-shadow: 0 0 10px rgba(208, 2, 27, 0.5); transform: translateY(-1px); }
+
+/* === FOOTER === */
+footer {
+    background-color: var(--cor-fundo-secundario);
+    color: var(--cor-texto-secundario);
+    text-align: center;
+    padding: 1.5rem 0;
+    margin-top: auto; /* Empurra o footer para o final */
+    border-top: 1px solid var(--cor-borda);
+}
