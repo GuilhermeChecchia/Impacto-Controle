@@ -7,7 +7,8 @@ import {
     updateDoc,
     deleteDoc,
     query,
-    where
+    where,
+    onSnapshot // <-- Importando o listener em tempo real
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -19,16 +20,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const produtosCollection = collection(db, 'produtos');
 
-    // --- FUNÇÕES DE INTERAÇÃO COM O FIRESTORE ---
-
-    const carregarProdutos = async () => {
+    // --- FUNÇÃO DE LISTENER EM TEMPO REAL ---
+    const escutarMudancasProdutos = () => {
         skuListContainer.innerHTML = '<p>Carregando produtos...</p>';
-        try {
-            const querySnapshot = await getDocs(produtosCollection);
+        
+        onSnapshot(produtosCollection, (querySnapshot) => {
             const produtos = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
-            if (produtos.length === 0) {
-                skuListContainer.innerHTML = '<p>Nenhum produto cadastrado ainda.</p>';
+            if (querySnapshot.empty) {
+                skuListContainer.innerHTML = '<p>Nenhum produto cadastrado ainda. Comece adicionando um!</p>';
                 return;
             }
 
@@ -59,15 +59,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     </tbody>
                 </table>
             `;
-        } catch (error) {
-            console.error("Erro ao carregar produtos: ", error);
-            skuListContainer.innerHTML = '<p class="error-message">Não foi possível carregar os produtos.</p>';
-        }
+        }, (error) => {
+            console.error("Erro ao escutar o banco de dados: ", error);
+            skuListContainer.innerHTML = '<p class="error-message"><b>Erro de conexão.</b> Não foi possível carregar os produtos. Verifique se as <a href="https://console.firebase.google.com/project/' + db.app.options.projectId + '/firestore/rules" target="_blank">regras de segurança do Firestore</a> foram publicadas corretamente.</p>';
+        });
     };
+
+    // --- FUNÇÕES DE INTERAÇÃO COM O FIRESTORE ---
 
     const salvarProduto = async (produto) => {
         try {
-            // Verifica se o SKU já existe
             const q = query(produtosCollection, where("sku", "==", produto.sku));
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
@@ -78,14 +79,13 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Produto salvo com sucesso!');
         } catch (error) {
             console.error("Erro ao salvar produto: ", error);
-            alert('Ocorreu um erro ao salvar o produto.');
+            alert('Ocorreu um erro ao salvar o produto. Verifique sua conexão e as regras de segurança do Firebase.');
         }
     };
 
     const editarProduto = async (id, produto) => {
         try {
             const produtoDoc = doc(db, 'produtos', id);
-             // Verifica se o SKU já existe em outro documento
              const q = query(produtosCollection, where("sku", "==", produto.sku));
              const querySnapshot = await getDocs(q);
              if (!querySnapshot.empty) {
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const produtoDoc = doc(db, 'produtos', id);
             await deleteDoc(produtoDoc);
             alert('Produto excluído com sucesso!');
-            carregarProdutos(); // Recarrega a lista
+            // A lista irá atualizar sozinha graças ao onSnapshot
         } catch (error) {
             console.error("Erro ao excluir produto: ", error);
             alert('Ocorreu um erro ao excluir o produto.');
@@ -146,7 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
             nome: `${quantidade} ${nome} ${cor}`,
             fornecedor,
             custoTotal,
-            // Armazenando dados originais para edição
             quantidade: parseInt(quantidade),
             nomeBase: nome,
             cor: cor,
@@ -161,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         resetarFormulario();
-        carregarProdutos();
+        // A lista irá atualizar sozinha. Nenhuma ação extra é necessária.
     });
 
     const resetarFormulario = () => {
@@ -188,7 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (target.classList.contains('edit-btn')) {
-            const querySnapshot = await getDocs(produtosCollection);
+            // Para edição, ainda precisamos buscar os dados específicos daquele item
+            const querySnapshot = await getDocs(collection(db, 'produtos'));
             const produto = querySnapshot.docs.find(doc => doc.id === id)?.data();
 
             if (produto) {
@@ -208,6 +208,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Carregamento inicial
-    carregarProdutos();
+    // Inicia o listener para carregar os dados e observar mudanças
+    escutarMudancasProdutos();
 });
